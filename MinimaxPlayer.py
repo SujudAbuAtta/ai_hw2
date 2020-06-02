@@ -86,7 +86,6 @@ class MinimaxPlayer:
             self.undo_move(move)
         return winning_move
 
-
     def minimax(self, player: int, depth: int, deadline_time) -> (float, (int, int)):
         if depth == 0 or not self.has_time(deadline_time) or self.game_ended(player)[0]:  # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
             return self.calc_heuristic_val(), (0, 0)
@@ -119,7 +118,7 @@ class MinimaxPlayer:
     def make_move(self, player_time) -> (int, int):
         print("i have " + str(player_time) + " secs")
         cur_time = time.time()
-        deadline_time = player_time + time.time() - 1
+        deadline_time = player_time + time.time() - 0.1
         depth = 0
         move = None
         while self.has_time(deadline_time):
