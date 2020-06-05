@@ -1,5 +1,7 @@
 import time
+import networkx as nx
 
+big_int = 1000000
 class MinimaxPlayer:
     def __init__(self):
         self.loc = None
@@ -27,11 +29,47 @@ class MinimaxPlayer:
     def get_other_player(self, player: int):
         return 1 if player == 2 else 2
 
-    def calc_heuristic_val(self):
-        if self.game_ended(1)[0]:
-            return self.game_ended(1)[1]
-        # TODO: calculate
-        return 0
+    def build_graph_from_board(self):
+        g = nx.Graph()
+        for i in range(len(self.board)):
+            for j in range(len(self.board[i])):
+                if self.board[i][j] == 0:
+                    if i < len(self.board)-1 and self.board[i + 1][j] != -1:
+                        g.add_edge((i, j), (i + 1, j))
+                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] != -1:
+                        g.add_edge((i, j), (i, j + 1))
+                if self.board[i][j] == 1 or self.board[i][j] == 2:
+                    if i < len(self.board)-1 and self.board[i + 1][j] == 0:
+                        g.add_edge((i, j), (i + 1, j))
+                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] == 0:
+                        g.add_edge((i, j), (i, j + 1))
+        return g.to_undirected()
+
+    def achievable_cells_score(self, graph):
+        my_achievable_cells = len(nx.shortest_path(graph, source=self.loc))
+        opp_achievable_cells = len(nx.shortest_path(graph, source=self.opp_loc))
+        return my_achievable_cells - opp_achievable_cells
+
+    def adjacent_cells_score(self):
+        legal_moves = self.legal_moves_num(1)
+        return -legal_moves if legal_moves > 0 else -5
+
+    def path_between_players_score(self, graph):
+        #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
+        return -20 if nx.has_path(graph, self.loc, self.opp_loc) else 20
+
+    def calc_heuristic_val(self, deadline_time) -> float:
+        board_graph = self.build_graph_from_board()
+        if not self.has_time(deadline_time):
+            return 0
+        score1 = self.achievable_cells_score(board_graph)
+        if not self.has_time(deadline_time):
+            return score1
+        score2 = self.adjacent_cells_score()
+        if not self.has_time(deadline_time):
+            return score1 + score2
+        score3 = self.path_between_players_score(board_graph)
+        return score1 + score2 + score3
 
     def get_legal_moves(self, player: int):  # returns the direction!
         loc = self.get_player_loc(player)
@@ -62,12 +100,37 @@ class MinimaxPlayer:
         else:
             self.opp_loc = prev_loc
 
-    def game_ended(self, player: int) -> (bool, int): # in the second item the game result is returned (tie or losing)
+    """
+    checks if game ended for player
+    returns:
+    true in case game ended else false
+    the last 2 return values are relevant for game end case only
+    game result: -1 is player lost, 0 if tie, 1 if winning
+    move to make: if winning or tie then don't make a move, if winning then make a winning move
+    """
+
+    def game_ended(self, player: int) -> (bool, int, (int, int)):
         if not self.has_moves(player):
             if not self.has_moves(self.get_other_player(player)):  # tie
-                return True, 0
-            return True, -1  # player lost
-        return False, 2
+                return True, 0, (0, 0)
+            return True, -1, (0, 0)  # player lost
+
+        #  check winning
+        assert self.has_moves(player)
+        if not self.has_moves(self.get_other_player(player)):
+            winning_move = self.get_final_winning_move(player)
+            # print("looks like player " + str(player) + " winning, my winning move is " + str(self.get_player_loc(player)))
+            if winning_move is None:  # all coming moves will bring a tie
+                return True, 0, self.get_random_legal_move(player)
+            # there is a way to win
+            return True, 1, winning_move
+
+        return False, -2, (-2, -2)
+
+    def get_random_legal_move(self, player):
+        assert self.has_moves(player)
+        for m in self.get_legal_moves(player):
+            return m
 
     def has_time(self, deadline_time):
         return time.time() < deadline_time
@@ -77,18 +140,35 @@ class MinimaxPlayer:
             return True
         return False
 
+    def legal_moves_num(self, player):
+        return sum(1 for _ in self.get_legal_moves(player))
+
     def get_final_winning_move(self, player: int) -> (int, int):
+        assert self.has_moves(player)
         winning_move = None
         for move in self.get_legal_moves(player):
             self.apply_move(player, move)
             if self.has_moves(player):
                 winning_move = move
-            self.undo_move(move)
+            self.undo_move(player, move)
         return winning_move
 
     def minimax(self, player: int, depth: int, deadline_time) -> (float, (int, int)):
-        if depth == 0 or not self.has_time(deadline_time) or self.game_ended(player)[0]:  # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
-            return self.calc_heuristic_val(), (0, 0)
+        game_ended, utility, move = self.game_ended(player)
+
+        if game_ended:
+            print("in this move game for player " + str(player) + " ends with utiity " + str(utility))
+            if utility == 1:
+                return big_int, move
+            if utility == -1:
+                return -big_int, move
+            return 0, move
+
+        #assuming we have at least one sec, and function in never called when player has lost -> will always find another move
+        if depth == 0 or not self.has_time(deadline_time):
+            h = self.calc_heuristic_val(deadline_time), self.get_random_legal_move(player)
+            print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
+            return h
 
         if player == 1:  # my turn
             cur_max = -float('inf')
@@ -106,7 +186,11 @@ class MinimaxPlayer:
             cur_min = float('inf')
             worst_move = None
             for move in self.get_legal_moves(player):
+                # print("I am player 2 and trying to try and make a move to " + str(move))
+                # print("I wan in " + str(self.opp_loc))
                 self.apply_move(player, move)
+                # print("now im in " + str(self.opp_loc))
+                # print("******************************************")
                 res = (self.minimax(1, depth - 1, deadline_time))[0]
                 if res < cur_min:
                     cur_min = res
@@ -116,12 +200,10 @@ class MinimaxPlayer:
             return cur_min, worst_move
 
     def make_move(self, player_time) -> (int, int):
-        print("i have " + str(player_time) + " secs")
-        cur_time = time.time()
-        deadline_time = player_time + time.time() - 0.1
+        deadline_time = player_time + time.time() - 0.5
         depth = 0
         move = None
-        while self.has_time(deadline_time):
+        while self.has_time(deadline_time) and depth < self.board.size:
             # print("depth is " + str(depth) + "and time let is " + str(deadline_time-time.time()))
             move = self.minimax(1, depth, deadline_time)[1]
             depth += 1
