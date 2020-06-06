@@ -34,12 +34,12 @@ class MinimaxPlayer:
         for i in range(len(self.board)):
             for j in range(len(self.board[i])):
                 if self.board[i][j] == 0:
-                    if i < len(self.board)-1 and self.board[i + 1][j] != -1:
+                    if i < len(self.board) - 1 and self.board[i + 1][j] != -1:
                         g.add_edge((i, j), (i + 1, j))
                     if j < len(self.board[i]) - 1 and self.board[i][j + 1] != -1:
                         g.add_edge((i, j), (i, j + 1))
                 if self.board[i][j] == 1 or self.board[i][j] == 2:
-                    if i < len(self.board)-1 and self.board[i + 1][j] == 0:
+                    if i < len(self.board) - 1 and self.board[i + 1][j] == 0:
                         g.add_edge((i, j), (i + 1, j))
                     if j < len(self.board[i]) - 1 and self.board[i][j + 1] == 0:
                         g.add_edge((i, j), (i, j + 1))
@@ -56,7 +56,7 @@ class MinimaxPlayer:
 
     def path_between_players_score(self, graph):
         #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
-        return -20 if nx.has_path(graph, self.loc, self.opp_loc) else 20
+        return -1 if nx.has_path(graph, self.loc, self.opp_loc) else 1
 
     def calc_heuristic_val(self, deadline_time) -> float:
         board_graph = self.build_graph_from_board()
@@ -157,17 +157,21 @@ class MinimaxPlayer:
         game_ended, utility, move = self.game_ended(player)
 
         if game_ended:
-            print("in this move game for player " + str(player) + " ends with utiity " + str(utility))
+            # print("in this move game for player " + str(player) + " ends with utiity " + str(utility))
             if utility == 1:
-                return big_int, move
-            if utility == -1:
+                if player == 1:
+                    return big_int, move
                 return -big_int, move
+            if utility == -1:
+                if player == 1:
+                    return -big_int, move
+                return big_int, move
             return 0, move
 
-        #assuming we have at least one sec, and function in never called when player has lost -> will always find another move
+        # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
         if depth == 0 or not self.has_time(deadline_time):
             h = self.calc_heuristic_val(deadline_time), self.get_random_legal_move(player)
-            print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
+            # print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
             return h
 
         if player == 1:  # my turn
@@ -200,7 +204,7 @@ class MinimaxPlayer:
             return cur_min, worst_move
 
     def make_move(self, player_time) -> (int, int):
-        deadline_time = player_time + time.time() - 0.5
+        deadline_time = player_time + time.time() - 0.2
         depth = 0
         move = None
         while self.has_time(deadline_time) and depth < self.board.size:
