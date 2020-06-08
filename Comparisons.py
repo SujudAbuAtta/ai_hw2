@@ -2,15 +2,15 @@ from MapsGenerator import ai_board
 import numpy as np
 from MinimaxPlayer import MinimaxPlayer
 from AlphaBetaPlayer import AlphaBetaPlayer
-# from OrderedAlphaBetaPlayer import OrderedAlphaBetaPlayer
+from OrderedAlphaBetaPlayer import OrderedAlphaBetaPlayer
 import matplotlib.pyplot as plt
 
 # Configurations
-names = ['Minimax', 'AlphaBeta']
-colors = ['r', 'g']
-player_classes = [MinimaxPlayer, AlphaBetaPlayer]
+names = ['Minimax', 'AlphaBeta', 'OrderedAlphaBeta']
+colors = ['r', 'g', 'b']
+player_classes = [MinimaxPlayer, AlphaBetaPlayer, OrderedAlphaBetaPlayer]
 min_seconds = 1
-max_seconds = 15
+max_seconds = 5
 num_samples = 15
 
 
