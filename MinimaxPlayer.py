@@ -215,4 +215,4 @@ class MinimaxPlayer:
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return move
+        return depth
