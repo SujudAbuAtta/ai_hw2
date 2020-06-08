@@ -2,7 +2,7 @@ import time
 import networkx as nx
 
 big_int = 1000000
-class AlphaBetaPlayer:
+class HeavyAlphaBetaPlayer:
     def __init__(self):
         self.loc = None
         self.board = None
@@ -211,18 +211,15 @@ class AlphaBetaPlayer:
     def make_move(self, player_time) -> (int, int):
         deadline_time = player_time + time.time() - 0.2
         depth = 0
-        best_val = -float('inf')
-        best_move = None
+        move = None
         alpha = -float('inf')
         beta = float('inf')
         while self.has_time(deadline_time) and depth < self.board.size:
-            cur_val, cur_move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)
-            if cur_val > best_val:
-                best_move = cur_move
-                best_val = cur_val
+            # print("depth is " + str(depth) + "and time let is " + str(deadline_time-time.time()))
+            move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)[1]
             depth += 1
-        new_loc = self.loc[0] + best_move[0], self.loc[1] + best_move[1]
+        new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return best_move
+        return depth

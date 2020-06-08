@@ -2,7 +2,7 @@ import time
 import networkx as nx
 
 big_int = 1000000
-class AlphaBetaPlayer:
+class LiteAlphaBetaPlayer:
     def __init__(self):
         self.loc = None
         self.board = None
@@ -31,47 +31,9 @@ class AlphaBetaPlayer:
     def get_other_player(self, player: int):
         return 1 if player == 2 else 2
 
-    def build_graph_from_board(self):
-        g = nx.Graph()
-        for i in range(len(self.board)):
-            for j in range(len(self.board[i])):
-                if self.board[i][j] == 0:
-                    if i < len(self.board) - 1 and self.board[i + 1][j] != -1:
-                        g.add_edge((i, j), (i + 1, j))
-                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] != -1:
-                        g.add_edge((i, j), (i, j + 1))
-                if self.board[i][j] == 1 or self.board[i][j] == 2:
-                    if i < len(self.board) - 1 and self.board[i + 1][j] == 0:
-                        g.add_edge((i, j), (i + 1, j))
-                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] == 0:
-                        g.add_edge((i, j), (i, j + 1))
-        return g.to_undirected()
-
-    def achievable_cells_score(self, graph):
-        my_achievable_cells = len(nx.shortest_path(graph, source=self.loc))
-        opp_achievable_cells = len(nx.shortest_path(graph, source=self.opp_loc))
-        return my_achievable_cells - opp_achievable_cells
-
-    def adjacent_cells_score(self):
-        legal_moves = self.legal_moves_num(1)
-        return -legal_moves if legal_moves > 0 else -5
-
-    def path_between_players_score(self, graph):
-        #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
-        return -1 if nx.has_path(graph, self.loc, self.opp_loc) else 1
-
     def calc_heuristic_val(self, deadline_time) -> float:
-        board_graph = self.build_graph_from_board()
-        if not self.has_time(deadline_time):
-            return 0
-        score1 = self.achievable_cells_score(board_graph)
-        if not self.has_time(deadline_time):
-            return score1
-        score2 = self.adjacent_cells_score()
-        if not self.has_time(deadline_time):
-            return score1 + score2
-        score3 = self.path_between_players_score(board_graph)
-        return score1 + score2 + score3
+        legal_moves_num = self.legal_moves_num(1)
+        return -legal_moves_num if legal_moves_num > 0 else -5
 
     def get_legal_moves(self, player: int):  # returns the direction!
         loc = self.get_player_loc(player)
@@ -211,18 +173,15 @@ class AlphaBetaPlayer:
     def make_move(self, player_time) -> (int, int):
         deadline_time = player_time + time.time() - 0.2
         depth = 0
-        best_val = -float('inf')
-        best_move = None
+        move = None
         alpha = -float('inf')
         beta = float('inf')
         while self.has_time(deadline_time) and depth < self.board.size:
-            cur_val, cur_move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)
-            if cur_val > best_val:
-                best_move = cur_move
-                best_val = cur_val
+            # print("depth is " + str(depth) + "and time let is " + str(deadline_time-time.time()))
+            move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)[1]
             depth += 1
-        new_loc = self.loc[0] + best_move[0], self.loc[1] + best_move[1]
+        new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return best_move
+        return depth

@@ -206,13 +206,17 @@ class MinimaxPlayer:
     def make_move(self, player_time) -> (int, int):
         deadline_time = player_time + time.time() - 0.2
         depth = 0
-        move = None
+        best_val = -float('inf')
+        best_move = None
         while self.has_time(deadline_time) and depth < self.board.size:
-            # print("depth is " + str(depth) + "and time let is " + str(deadline_time-time.time()))
-            move = self.minimax(1, depth, deadline_time)[1]
+            cur_val, cur_move = self.minimax(1, depth, deadline_time)
+            if cur_val > best_val:
+                best_move = cur_move
+                best_val = cur_val
             depth += 1
-        new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
+        new_loc = self.loc[0] + best_move[0], self.loc[1] + best_move[1]
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return move
+        return best_move
+
