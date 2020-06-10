@@ -6,12 +6,12 @@ from OrderedAlphaBetaPlayer import OrderedAlphaBetaPlayer
 import matplotlib.pyplot as plt
 
 # Configurations
-names = ['Minimax', 'AlphaBeta', 'OrderedAlphaBeta']
-colors = ['r', 'g', 'b']
-player_classes = [MinimaxPlayer, AlphaBetaPlayer, OrderedAlphaBetaPlayer]
+names = ['AlphaBeta', 'OrderedAlphaBeta']
+colors = ['g', 'b']
+player_classes = [AlphaBetaPlayer, OrderedAlphaBetaPlayer]
 min_seconds = 1
-max_seconds = 5
-num_samples = 15
+max_seconds = 25
+num_samples = 25
 
 
 fig = plt.figure()

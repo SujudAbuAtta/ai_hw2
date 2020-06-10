@@ -8,8 +8,7 @@ class OrderedAlphaBetaPlayer:
         self.board = None
         self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
         self.opp_loc = None
-        # self.alpha = -float('inf')
-        # self.beta = float('inf')
+        self.alreadyCheakedMove = []
 
     def set_game_params(self, board):
         self.board = board
@@ -21,9 +20,11 @@ class OrderedAlphaBetaPlayer:
                     self.opp_loc = (i, j)
 
     def set_rival_move(self, loc):
+        move = loc[0]-self.opp_loc[0] , loc[1]-self.opp_loc[1]
         self.board[self.opp_loc] = -1
         self.opp_loc = loc
         self.board[loc] = 2
+
 
     def get_player_loc(self, player: int):
         return self.loc if player == 1 else self.opp_loc
@@ -57,7 +58,6 @@ class OrderedAlphaBetaPlayer:
         return -legal_moves if legal_moves > 0 else -5
 
     def path_between_players_score(self, graph):
-        #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
         return -1 if nx.has_path(graph, self.loc, self.opp_loc) else 1
 
     def calc_heuristic_val(self, deadline_time) -> float:
@@ -82,10 +82,6 @@ class OrderedAlphaBetaPlayer:
                 yield d
 
     def apply_move(self, player: int, move: (int, int),depth=None, depthForCurrIteration=None):
-        if move not in self.get_legal_moves(player):
-            print(player)
-            print("depthForCurrIteration ", depthForCurrIteration)
-            print("depth ", depth)
         assert move in self.get_legal_moves(player)
         old_loc = self.get_player_loc(player)
         new_loc = (old_loc[0] + move[0]), (old_loc[1] + move[1])
@@ -159,7 +155,7 @@ class OrderedAlphaBetaPlayer:
             self.undo_move(player, move)
         return winning_move
 
-    def  OrderedAlphaBeta(self, player: int, depth: int, deadline_time, alpha, beta, listOfAgentsMoves, i, depthForCurrIteration) -> (float, (int, int)):
+    def OrderedAlphaBeta(self, player: int, depth: int, deadline_time, alpha, beta, last_best_move, depthForThisIteration) -> (float, (int, int)):
         game_ended, utility, move = self.game_ended(player)
 
         if game_ended:
@@ -175,122 +171,115 @@ class OrderedAlphaBetaPlayer:
             return 0, move
 
         # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
-        if depth == 0: # or not self.has_time(deadline_time):
+        if depth == 0 or not self.has_time(deadline_time):
             h = self.calc_heuristic_val(deadline_time), self.get_random_legal_move(player)
-            # print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
             return h
 
         if player == 1:  # my turn
             cur_max = -float('inf')
             best_move = None
 
-            if len(listOfAgentsMoves) > depthForCurrIteration - depth:
-                rightMove = listOfAgentsMoves[i]
-                i += 1
-                move = rightMove
-                self.apply_move(player, move,depth, depthForCurrIteration)
-                res = (self.OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta, listOfAgentsMoves, i, depthForCurrIteration))[0]
+            if last_best_move is not 0 and (depthForThisIteration - depth) == 0:
+                self.alreadyCheakedMove.append(last_best_move)
+                move = last_best_move
+                self.apply_move(player, move)
+                res = (self.OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta))[0]
+                self.undo_move(player, move)
                 if res > cur_max:
                     cur_max = res
                     best_move = move
-                self.undo_move(player, move)
                 alpha = max(alpha, cur_max)
-                if (cur_max >= beta):
-                    assert best_move is not None  # other wise would not get to here
-                    return cur_max, best_move
+                assert best_move is not None  # other wise would not get to here
+                return cur_max, best_move
+
 
             for move in self.get_legal_moves(player):
-                if len(listOfAgentsMoves) > depthForCurrIteration - depth:
-                    if( move == listOfAgentsMoves[i-1]): continue
-                self.apply_move(player, move,depth, depthForCurrIteration)
-                res = (self. OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta, listOfAgentsMoves, i, depthForCurrIteration))[0]
+                if last_best_move is not 0 and (depthForThisIteration - depth) == 0:
+                    if move in self.alreadyCheakedMove: continue
+                self.apply_move(player, move)
+                res = (self. OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta, last_best_move, depthForThisIteration))[0]
+                self.undo_move(player, move)
                 if res > cur_max:
                     cur_max = res
                     best_move = move
-                self.undo_move(player, move)
                 alpha = max(alpha,cur_max)
                 if(cur_max >= beta):
                     break
 
             assert best_move is not None  # other wise would not get to here
-            if(len(listOfAgentsMoves) < i+1):
-                listOfAgentsMoves.append(best_move)
-            elif (len(listOfAgentsMoves) == i+1):
-                listOfAgentsMoves[i-1] = best_move
+            if best_move is not last_best_move:
+                last_best_move = best_move
+                self.alreadyCheakedMove.append(last_best_move)
             return cur_max, best_move
 
         else:  # opponent's turn
             cur_min = float('inf')
             worst_move = None
-
-            if len(listOfAgentsMoves) > depthForCurrIteration - depth:
-                rightMove = listOfAgentsMoves[i]
-                i += 1
-                move = rightMove
-                self.apply_move(player, move,depth, depthForCurrIteration)
-                res = (self. OrderedAlphaBeta(1, depth - 1, deadline_time, alpha, beta, listOfAgentsMoves, i, depthForCurrIteration))[0]
-                if res < cur_min:
-                    cur_min = res
-                    worst_move = move
-                self.undo_move(2, move)
-                beta = min(beta,cur_min)
-                if(cur_min <= alpha):
-                    assert worst_move is not None  # other wise would not get to here
-                    return cur_min, worst_move
-
             for move in self.get_legal_moves(player):
-                if len(listOfAgentsMoves) > depthForCurrIteration - depth:
-                    if( move == listOfAgentsMoves[i-1]): continue
-                self.apply_move(player, move,depth, depthForCurrIteration)
-                res = (self. OrderedAlphaBeta(1, depth - 1, deadline_time, alpha, beta, listOfAgentsMoves, i, depthForCurrIteration))[0]
+                # if key in self.listOppMoves:
+                #     if( move == self.listOppMoves[key]): continue
+                self.apply_move(player, move)
+                res = (self. OrderedAlphaBeta(1, depth - 1, deadline_time, alpha, beta, last_best_move, depthForThisIteration))[0]
+                self.undo_move(2, move)
                 if res < cur_min:
                     cur_min = res
                     worst_move = move
-                self.undo_move(2, move)
                 beta = min(beta,cur_min)
                 if(cur_min <= alpha):
                     break
 
             assert worst_move is not None  # other wise would not get to here
-            if(len(listOfAgentsMoves) < i+1):
-                listOfAgentsMoves.append(worst_move)
-            elif (len(listOfAgentsMoves) == i+1):
-                listOfAgentsMoves[i-1] = worst_move
             return cur_min, worst_move
 
-    def nextEstimatedTime(self,last_iteration_time, depth):
-        estimated_time = 4*(last_iteration_time + (last_iteration_time / ( depth+1)*10 ) )
-        return estimated_time
+    # def nextEstimatedTime(self,last_iteration_time, depth):
+    #     estimated_time = 4*(last_iteration_time + (last_iteration_time / ( depth+1)*10 ) )
+    #     return estimated_time
 
+
+    # def make_move(self, player_time) -> (int, int):
+    #     deadline_time = player_time + time.time()
+    #     depth = 0
+    #     alpha = -float('inf')
+    #     beta = float('inf')
+    #     start_time = time.time()
+    #     best_move = self. OrderedAlphaBeta(1, depth, deadline_time, alpha, beta)[1]
+    #     last_iteration_time = time.time() - start_time
+    #     next_iteration_max_time = self.nextEstimatedTime(last_iteration_time, depth)
+    #     last_best_move = best_move
+    #     time_until_now = time.time() - start_time
+    #     while time_until_now + next_iteration_max_time < deadline_time and depth < self.board.size:
+    #
+    #         depth += 1
+    #         start_time = time.time()
+    #         best_move = self. OrderedAlphaBeta(1, depth, deadline_time, alpha, beta,last_best_move)[1]
+    #         last_iteration_time = time.time() - start_time
+    #         next_iteration_max_time = self.nextEstimatedTime(last_iteration_time, depth)
+    #         time_until_now = time.time() - start_time
+    #
+    #     new_loc = (self.loc[0] + best_move[0], self.loc[1] + best_move[1])
+    #     self.board[self.loc] = -1
+    #     self.board[new_loc] = 1
+    #     self.loc = new_loc
+    #     self.alreadyCheakedMove.clear()
+    #     return best_move
 
     def make_move(self, player_time) -> (int, int):
-        deadline_time = player_time + time.time()
-        depth = 1
+        deadline_time = player_time + time.time() - 0.2
+        depth = 0
+        best_val = -float('inf')
+        move = None
         alpha = -float('inf')
         beta = float('inf')
-        listOfAgentsMoves = []
-        i=0
-        start_time = time.time()
-        best_val = -float('inf')
-        best_move = self. OrderedAlphaBeta(1, depth, deadline_time, alpha, beta, listOfAgentsMoves,i,depth)[1]
-        last_iteration_time = time.time() - start_time
-        next_iteration_max_time = self.nextEstimatedTime(last_iteration_time, depth)
-        time_until_now = time.time() - start_time
-        while time_until_now + next_iteration_max_time < deadline_time and depth < 3:
-
+        last_best_move=0
+        while self.has_time(deadline_time) and depth < self.board.size:
+            cut_val, cur_move = self. OrderedAlphaBeta(1, depth, deadline_time, alpha, beta, last_best_move, depth)
+            if cut_val > best_val:
+                move = cur_move
+                best_val = cut_val
             depth += 1
-            start_time = time.time()
-            cur_val, cur_move = self. OrderedAlphaBeta(1, depth, deadline_time, alpha, beta, listOfAgentsMoves,i,depth)
-            if cur_val > best_val:
-                best_move = cur_move
-                best_val = cur_val
-            last_iteration_time = time.time() - start_time
-            next_iteration_max_time = self.nextEstimatedTime(last_iteration_time, depth)
-            i=0
-            time_until_now = time.time() - start_time
-
-        new_loc = self.loc[0] + best_move[0], self.loc[1] + best_move[1]
+        new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return best_move
+        self.alreadyCheakedMove.clear()
+        return depth
