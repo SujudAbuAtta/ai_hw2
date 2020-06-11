@@ -62,14 +62,8 @@ class OrderedAlphaBetaPlayer:
 
     def calc_heuristic_val(self, deadline_time) -> float:
         board_graph = self.build_graph_from_board()
-        if not self.has_time(deadline_time):
-            return 0
         score1 = self.achievable_cells_score(board_graph)
-        if not self.has_time(deadline_time):
-            return score1
         score2 = self.adjacent_cells_score()
-        if not self.has_time(deadline_time):
-            return score1 + score2
         score3 = self.path_between_players_score(board_graph)
         return score1 + score2 + score3
 
@@ -159,7 +153,6 @@ class OrderedAlphaBetaPlayer:
         game_ended, utility, move = self.game_ended(player)
 
         if game_ended:
-            # print("in this move game for player " + str(player) + " ends with utiity " + str(utility))
             if utility == 1:
                 if player == 1:
                     return big_int, move
@@ -179,7 +172,7 @@ class OrderedAlphaBetaPlayer:
             cur_max = -float('inf')
             best_move = None
 
-            if last_best_move is not 0 and (depthForThisIteration - depth) == 0:
+            if last_best_move != 0 and (depthForThisIteration - depth) == 0:
                 self.alreadyCheakedMove.append(last_best_move)
                 move = last_best_move
                 self.apply_move(player, move)
@@ -194,10 +187,10 @@ class OrderedAlphaBetaPlayer:
 
 
             for move in self.get_legal_moves(player):
-                if last_best_move is not 0 and (depthForThisIteration - depth) == 0:
+                if last_best_move != 0 and (depthForThisIteration - depth) == 0:
                     if move in self.alreadyCheakedMove: continue
                 self.apply_move(player, move)
-                res = (self. OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta, last_best_move, depthForThisIteration))[0]
+                res = (self.OrderedAlphaBeta(2, depth - 1, deadline_time, alpha, beta, last_best_move, depthForThisIteration))[0]
                 self.undo_move(player, move)
                 if res > cur_max:
                     cur_max = res
@@ -282,4 +275,4 @@ class OrderedAlphaBetaPlayer:
         self.board[new_loc] = 1
         self.loc = new_loc
         self.alreadyCheakedMove.clear()
-        return depth
+        return move

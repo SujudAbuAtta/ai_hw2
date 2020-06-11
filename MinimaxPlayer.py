@@ -27,7 +27,7 @@ class MinimaxPlayer:
         return self.loc if player == 1 else self.opp_loc
 
     def get_other_player(self, player: int):
-        return 1 if player == 2 else 2
+        return 3 - player
 
     def build_graph_from_board(self):
         g = nx.Graph()
@@ -58,16 +58,10 @@ class MinimaxPlayer:
         #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
         return -1 if nx.has_path(graph, self.loc, self.opp_loc) else 1
 
-    def calc_heuristic_val(self, deadline_time) -> float:
+    def calc_heuristic_val(self) -> float:
         board_graph = self.build_graph_from_board()
-        if not self.has_time(deadline_time):
-            return 0
         score1 = self.achievable_cells_score(board_graph)
-        if not self.has_time(deadline_time):
-            return score1
         score2 = self.adjacent_cells_score()
-        if not self.has_time(deadline_time):
-            return score1 + score2
         score3 = self.path_between_players_score(board_graph)
         return score1 + score2 + score3
 
@@ -108,7 +102,6 @@ class MinimaxPlayer:
     game result: -1 is player lost, 0 if tie, 1 if winning
     move to make: if winning or tie then don't make a move, if winning then make a winning move
     """
-
     def game_ended(self, player: int) -> (bool, int, (int, int)):
         if not self.has_moves(player):
             if not self.has_moves(self.get_other_player(player)):  # tie
@@ -119,7 +112,6 @@ class MinimaxPlayer:
         assert self.has_moves(player)
         if not self.has_moves(self.get_other_player(player)):
             winning_move = self.get_final_winning_move(player)
-            # print("looks like player " + str(player) + " winning, my winning move is " + str(self.get_player_loc(player)))
             if winning_move is None:  # all coming moves will bring a tie
                 return True, 0, self.get_random_legal_move(player)
             # there is a way to win
@@ -170,9 +162,7 @@ class MinimaxPlayer:
 
         # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
         if depth == 0 or not self.has_time(deadline_time):
-            h = self.calc_heuristic_val(deadline_time), self.get_random_legal_move(player)
-            # print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
-            return h
+            return self.calc_heuristic_val(), self.get_random_legal_move(player)
 
         if player == 1:  # my turn
             cur_max = -float('inf')
@@ -186,15 +176,12 @@ class MinimaxPlayer:
                 self.undo_move(player, move)
             assert best_move is not None  # other wise would not get to here
             return cur_max, best_move
+
         else:  # opponent's turn
             cur_min = float('inf')
             worst_move = None
             for move in self.get_legal_moves(player):
-                # print("I am player 2 and trying to try and make a move to " + str(move))
-                # print("I wan in " + str(self.opp_loc))
                 self.apply_move(player, move)
-                # print("now im in " + str(self.opp_loc))
-                # print("******************************************")
                 res = (self.minimax(1, depth - 1, deadline_time))[0]
                 if res < cur_min:
                     cur_min = res
@@ -206,13 +193,16 @@ class MinimaxPlayer:
     def make_move(self, player_time) -> (int, int):
         deadline_time = player_time + time.time() - 0.2
         depth = 0
-        move = None
+        best_val = -float('inf')
+        best_move = None
         while self.has_time(deadline_time) and depth < self.board.size:
-            # print("depth is " + str(depth) + "and time let is " + str(deadline_time-time.time()))
-            move = self.minimax(1, depth, deadline_time)[1]
+            cur_val, cur_move = self.minimax(1, depth, deadline_time)
+            if cur_val > best_val:
+                best_move = cur_move
+                best_val = cur_val
             depth += 1
-        new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
+        new_loc = self.loc[0] + best_move[0], self.loc[1] + best_move[1]
         self.board[self.loc] = -1
         self.board[new_loc] = 1
         self.loc = new_loc
-        return depth
+        return best_move

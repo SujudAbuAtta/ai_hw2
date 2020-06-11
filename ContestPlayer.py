@@ -1,15 +1,12 @@
 import time
-import networkx as nx
 
 big_int = 1000000
-class AlphaBetaPlayer:
+class ContestPlayer:
     def __init__(self):
         self.loc = None
         self.board = None
         self.directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
         self.opp_loc = None
-        # self.alpha = -float('inf')
-        # self.beta = float('inf')
 
     def set_game_params(self, board):
         self.board = board
@@ -31,41 +28,9 @@ class AlphaBetaPlayer:
     def get_other_player(self, player: int):
         return 1 if player == 2 else 2
 
-    def build_graph_from_board(self):
-        g = nx.Graph()
-        for i in range(len(self.board)):
-            for j in range(len(self.board[i])):
-                if self.board[i][j] == 0:
-                    if i < len(self.board) - 1 and self.board[i + 1][j] != -1:
-                        g.add_edge((i, j), (i + 1, j))
-                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] != -1:
-                        g.add_edge((i, j), (i, j + 1))
-                if self.board[i][j] == 1 or self.board[i][j] == 2:
-                    if i < len(self.board) - 1 and self.board[i + 1][j] == 0:
-                        g.add_edge((i, j), (i + 1, j))
-                    if j < len(self.board[i]) - 1 and self.board[i][j + 1] == 0:
-                        g.add_edge((i, j), (i, j + 1))
-        return g.to_undirected()
-
-    def achievable_cells_score(self, graph):
-        my_achievable_cells = len(nx.shortest_path(graph, source=self.loc))
-        opp_achievable_cells = len(nx.shortest_path(graph, source=self.opp_loc))
-        return my_achievable_cells - opp_achievable_cells
-
-    def adjacent_cells_score(self):
-        legal_moves = self.legal_moves_num(1)
-        return -legal_moves if legal_moves > 0 else -5
-
-    def path_between_players_score(self, graph):
-        #  return -sum(1 for _ in nx.all_simple_paths(graph, self.loc, self.opp_loc))
-        return -1 if nx.has_path(graph, self.loc, self.opp_loc) else 1
-
-    def calc_heuristic_val(self, deadline_time) -> float:
-        board_graph = self.build_graph_from_board()
-        score1 = self.achievable_cells_score(board_graph)
-        score2 = self.adjacent_cells_score()
-        score3 = self.path_between_players_score(board_graph)
-        return score1 + score2 + score3
+    def calc_heuristic_val(self) -> float:
+        legal_moves_num = self.legal_moves_num(1)
+        return -legal_moves_num if legal_moves_num > 0 else -5
 
     def get_legal_moves(self, player: int):  # returns the direction!
         loc = self.get_player_loc(player)
@@ -149,7 +114,7 @@ class AlphaBetaPlayer:
             self.undo_move(player, move)
         return winning_move
 
-    def  AlphaBeta(self, player: int, depth: int, deadline_time, alpha, beta) -> (float, (int, int)):
+    def AlphaBeta(self, player: int, depth: int, deadline_time, alpha, beta) -> (float, (int, int)):
         game_ended, utility, move = self.game_ended(player)
 
         if game_ended:
@@ -166,15 +131,12 @@ class AlphaBetaPlayer:
 
         # assuming we have at least one sec, and function in never called when player has lost -> will always find another move
         if depth == 0 or not self.has_time(deadline_time):
-            h = self.calc_heuristic_val(deadline_time), self.get_random_legal_move(player)
-            # print("end of recursion wfor payer " + str(player) + "with heursitc :" + str(h))
-            return h
+            return self.calc_heuristic_val(), self.get_random_legal_move(player)
 
         if player == 1:  # my turn
             cur_max = -float('inf')
             best_move = None
             for move in self.get_legal_moves(player):
-
                 self.apply_move(player, move)
                 res = (self. AlphaBeta(2, depth - 1, deadline_time, alpha, beta))[0]
                 if res > cur_max:
@@ -205,15 +167,11 @@ class AlphaBetaPlayer:
     def make_move(self, player_time) -> (int, int):
         deadline_time = player_time + time.time() - 0.2
         depth = 0
-        best_val = -float('inf')
         move = None
         alpha = -float('inf')
         beta = float('inf')
         while self.has_time(deadline_time) and depth < self.board.size:
-            cut_val, cur_move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)
-            if cut_val > best_val:
-                move = cur_move
-                best_val = cut_val
+            move = self. AlphaBeta(1, depth, deadline_time, alpha, beta)[1]
             depth += 1
         new_loc = self.loc[0] + move[0], self.loc[1] + move[1]
         self.board[self.loc] = -1
